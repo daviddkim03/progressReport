@@ -1,0 +1,42 @@
+# ── Node ─────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Environment ───────────────────────────────────
+.env
+!.env.example
+
+# ── Vite / Frontend build ─────────────────────────
+frontend/dist/
+frontend/.vite/
+
+# ── Puppeteer cache ───────────────────────────────
+backend/.cache/
+.local-chromium/
+
+# ── OS ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Editor ───────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+cache.json
+
+# ── Python ───────────────────────────────────────
+__pycache__/
+*.pyc
+
+# ── Runtime data ─────────────────────────────────
+backend/data/*.db
+
+# ── Stray / backup files ─────────────────────────
+.codex
+frontend/package
+frontend/package.json2

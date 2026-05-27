@@ -1,0 +1,61 @@
+# ============================================================
+#  ProgressReport — System Requirements
+# ============================================================
+#
+#  This is a Node.js project (not Python), so there is no
+#  pip install step.  This file documents every dependency
+#  for reference and audit purposes.
+#
+# ============================================================
+
+
+# ── Runtime requirement ──────────────────────────────────────
+#  Node.js  >= 18.0.0   https://nodejs.org
+#  npm      >= 9.0.0    (bundled with Node)
+
+
+# ── BACKEND dependencies (backend/package.json) ──────────────
+#
+#  express      ^4.19.2   HTTP server framework
+#  cors         ^2.8.5    Cross-Origin Resource Sharing middleware
+#  dotenv       ^16.4.5   Loads .env into process.env
+#  puppeteer    ^22.10.0  Headless Chromium — PDF generation
+#                         NOTE: first `npm install` downloads ~170 MB Chromium
+#
+#  [devDependencies]
+#  nodemon      ^3.1.3    Auto-restarts server on file changes (dev only)
+
+
+# ── FRONTEND dependencies (frontend/package.json) ────────────
+#
+#  react        ^18.3.1   UI library
+#  react-dom    ^18.3.1   React DOM renderer
+#  axios        ^1.7.2    HTTP client (API calls to backend)
+#
+#  [devDependencies]
+#  vite               ^5.3.1   Build tool & dev server
+#  @vitejs/plugin-react ^4.3.1 React fast-refresh plugin for Vite
+#  @types/react       ^18.3.3  TypeScript types (optional, used by IDE)
+#  @types/react-dom   ^18.3.0  TypeScript types (optional, used by IDE)
+
+
+# ── ROOT convenience (package.json at project root) ──────────
+#
+#  concurrently ^8.2.2   Runs backend + frontend in one terminal
+
+
+# ── External / network resources ─────────────────────────────
+#
+#  Google Fonts  (DM Serif Display + DM Sans)
+#    Used in: frontend/index.html  AND  backend report template
+#    Requires internet access on first load; gracefully degrades offline.
+
+
+# ── Optional global tools ────────────────────────────────────
+#
+#  nodemon  (if you prefer global install)
+#    npm install -g nodemon
+#
+#  serve    (for static preview of frontend build)
+#    npm install -g serve
+#    serve frontend/dist

@@ -1,0 +1,269 @@
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer');
+const { letterGrade } = require('./stats.service');
+
+const TEMPLATE_PATH = path.join(__dirname, '../templates/report.template.html');
+
+function renderTemplate(replacements) {
+  let html = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
+  for (const [key, value] of Object.entries(replacements)) {
+    html = html.replaceAll(`{{${key}}}`, value ?? '');
+  }
+  return html;
+}
+
+function scoreColor(pct) {
+  if (pct >= 80) return '#15803d';
+  if (pct >= 60) return '#1a56db';
+  return '#b91c1c';
+}
+function scoreBg(pct) {
+  if (pct >= 80) return '#dcfce7';
+  if (pct >= 60) return '#dbeafe';
+  return '#fee2e2';
+}
+
+// ── Latest Test Performance ───────────────────────────────────
+function buildSectionTable(sectionNum, questions) {
+  const isEN = sectionNum <= 2;
+  const headerBg = isEN ? '#f0fdf4' : '#eff6ff';
+  const headerColor = isEN ? '#15803d' : '#1a56db';
+  const correct = questions.filter((q) => q.correct).length;
+  const pct = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+
+  const rows = questions.map((q, i) => `
+    <tr>
+      <td>${sectionNum} - ${q.question_number ?? i + 1}</td>
+      <td>${q.category_name || '—'}</td>
+      <td style="text-align:center;">${q.correct
+      ? '<span style="color:#15803d;font-weight:700;">&#10004;</span>'
+      : '<span style="color:#b91c1c;font-weight:700;">&#10008;</span>'
+    }</td>
+    </tr>`).join('');
+
+  return `
+    <div style="margin-bottom:8px;">
+      <div class="q-section-header" style="background:${headerBg};">
+        <span class="q-section-label" style="color:${headerColor};">${isEN ? 'EN' : 'MA'} — Section ${sectionNum}</span>
+        <span class="q-section-stat">${correct}/${questions.length} (${pct}%)</span>
+      </div>
+      <table class="q-table">
+        <thead><tr><th>Section - Q</th><th>Question Category</th><th style="text-align:center;">Correct?</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function buildLatestTestSection(latestTest) {
+  if (!latestTest) return '';
+
+  const questions = latestTest.questions || [];
+  const gc = scoreColor(latestTest.percentage);
+  const gcBg = scoreBg(latestTest.percentage);
+  const grade = letterGrade(latestTest.percentage);
+
+  let questionHtml = '';
+  if (questions.length > 0) {
+    const sectionMap = {};
+    for (const q of questions) {
+      const sec = q.section_number ?? 0;
+      if (!sectionMap[sec]) sectionMap[sec] = [];
+      sectionMap[sec].push(q);
+    }
+    const sectionNums = Object.keys(sectionMap).map(Number).sort((a, b) => a - b);
+    const hasSections = sectionNums.some((s) => s >= 1 && s <= 4);
+
+    if (hasSections) {
+      const enSecs = sectionNums.filter((s) => s === 1 || s === 2);
+      const maSecs = sectionNums.filter((s) => s === 3 || s === 4);
+      const enHtml = enSecs.map((s) => buildSectionTable(s, sectionMap[s])).join('');
+      const maHtml = maSecs.map((s) => buildSectionTable(s, sectionMap[s])).join('');
+      questionHtml = `<div class="q-grid"><div class="q-col">${enHtml}</div><div class="q-col">${maHtml}</div></div>`;
+    } else {
+      // flat fallback — split into 2 columns
+      const half = Math.ceil(questions.length / 2);
+      const makeCol = (col) => `
+        <table class="q-table" style="border:1px solid var(--border);">
+          <thead><tr><th>Q</th><th>Question Category</th><th style="text-align:center;">Correct?</th></tr></thead>
+          <tbody>${col.map((q, i) => `
+            <tr>
+              <td>Q${q.question_number ?? i + 1}</td>
+              <td>${q.category_name || '—'}</td>
+              <td style="text-align:center;">${q.correct
+          ? '<span style="color:#15803d;font-weight:700;">&#10004;</span>'
+          : '<span style="color:#b91c1c;font-weight:700;">&#10008;</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      questionHtml = `<div class="q-grid"><div>${makeCol(questions.slice(0, half))}</div><div>${makeCol(questions.slice(half))}</div></div>`;
+    }
+  } else {
+    questionHtml = `<p style="font-size:0.75rem;color:#6b7280;font-style:italic;padding:8px 0;">Question-level data not available. Enable "Questions / Responses / Category results" in ClassMarker webhook settings.</p>`;
+  }
+
+  return `
+    <div style="margin-bottom:18px;">
+      <div class="section-title">Latest Test Performance</div>
+      <div class="latest-test-header">
+        <div>
+          <div class="latest-test-name">${latestTest.testName}</div>
+          <div class="latest-test-meta">${latestTest.groupName} &nbsp;·&nbsp; ${latestTest.date} &nbsp;·&nbsp; ${latestTest.duration}</div>
+        </div>
+        <div class="qa-badge">
+          <span>Question Analysis</span>
+          <span class="pct-badge" style="color:${gc};">${latestTest.percentage}%</span>
+          <span class="grade-badge grade-${grade}" style="background:${gcBg};color:${gc};">${grade}</span>
+        </div>
+      </div>
+      ${questionHtml}
+    </div>`;
+}
+
+// ── Weekly Performance ────────────────────────────────────────
+function buildCatRow(cat, i) {
+  const color = scoreColor(cat.percentage);
+  return `
+    <tr>
+      <td>${cat.name}</td>
+      <td style="font-weight:600;color:${color};">${cat.correct}/${cat.total}</td>
+      <td style="font-weight:600;color:${color};">${cat.percentage}%</td>
+      <td><div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.round(cat.percentage)}%;background:${color};"></div></div></td>
+    </tr>`;
+}
+
+function buildCatBox(title, dotColor, headerBg, categories) {
+  const avg = categories.length > 0
+    ? Math.round(categories.reduce((s, c) => s + c.percentage, 0) / categories.length)
+    : 0;
+  const grade = letterGrade(avg);
+  const gc = scoreColor(avg);
+  const gcBg = scoreBg(avg);
+
+  const body = categories.length > 0
+    ? `<table class="cat-table">
+        <thead><tr><th>Problem Category</th><th>Score</th><th>%</th><th>Performance</th></tr></thead>
+        <tbody>${categories.map((c, i) => buildCatRow(c, i)).join('')}</tbody>
+       </table>`
+    : `<div style="padding:10px 12px;font-size:0.72rem;color:#6b7280;">No data available.</div>`;
+
+  return `
+    <div class="cat-box">
+      <div class="cat-box-header" style="background:${headerBg};">
+        <div class="cat-box-title">
+          <span class="cat-dot" style="background:${dotColor};"></span>
+          ${title}
+        </div>
+        <span class="grade-badge" style="background:${gcBg};color:${gc};">Avg ${avg}% · ${grade}</span>
+      </div>
+      ${body}
+    </div>`;
+}
+
+function buildWeeklySection(categoryPerfSplit, categoryPerf) {
+  let enCats = [];
+  let maCats = [];
+
+  if (categoryPerfSplit && (categoryPerfSplit.english?.length || categoryPerfSplit.math?.length)) {
+    enCats = categoryPerfSplit.english || [];
+    maCats = categoryPerfSplit.math || [];
+  } else if (categoryPerf && categoryPerf.length > 0) {
+    const isEN = (n) => /word|context|grammar|purpose|rhetoric|synthesis|reading|quotation|claim|transition|structure|function/i.test(n);
+    enCats = categoryPerf.filter((c) => isEN(c.name));
+    maCats = categoryPerf.filter((c) => !isEN(c.name));
+  }
+
+  if (!enCats.length && !maCats.length) return '';
+
+  const TOP = 3;
+  const enStr = [...enCats].sort((a, b) => b.percentage - a.percentage).slice(0, TOP);
+  const enWeak = [...enCats].sort((a, b) => a.percentage - b.percentage).slice(0, TOP);
+  const maStr = [...maCats].sort((a, b) => b.percentage - a.percentage).slice(0, TOP);
+  const maWeak = [...maCats].sort((a, b) => a.percentage - b.percentage).slice(0, TOP);
+
+  return `
+    <div style="margin-bottom:18px;">
+      <div class="section-title">Weekly Performance</div>
+      <div class="cat-grid">
+        ${buildCatBox('English - Strengths', '#15803d', '#f0fdf4', enStr)}
+        ${buildCatBox('Math - Strengths', '#1a56db', '#eff6ff', maStr)}
+      </div>
+      <div class="cat-grid">
+        ${buildCatBox('English - Weaknesses', '#b91c1c', '#fff1f2', enWeak)}
+        ${buildCatBox('Math - Weaknesses', '#b45309', '#fffbeb', maWeak)}
+      </div>
+    </div>`;
+}
+
+// ── Test rows ─────────────────────────────────────────────────
+function buildTestRows(groups) {
+  const allTests = groups.flatMap((g) => g.results);
+  allTests.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  return allTests.map((r, i) => {
+    const grade = letterGrade(r.percentage);
+    const color = scoreColor(r.percentage);
+    return `
+      <tr>
+        <td class="num-cell">${i + 1}</td>
+        <td style="font-weight:500;">${r.testName}</td>
+        <td style="color:#6b7280;white-space:nowrap;">${r.date}</td>
+        <td><span style="font-weight:600;color:${color};">${r.score}/${r.maxScore}</span></td>
+        <td style="font-weight:600;color:${color};">${r.percentage}%</td>
+        <td><span class="grade-badge grade-${grade}">${grade}</span></td>
+        <td><div class="score-bar-track"><div class="score-bar-fill" style="width:${Math.round(r.percentage)}%;background:${color};"></div></div></td>
+      </tr>`;
+  }).join('');
+}
+
+// ── Main export ───────────────────────────────────────────────
+async function generateReportPDF(student, groups, stats, satScores, startDate, endDate, latestTest, categoryPerf, categoryPerfSplit) {
+  const now = new Date();
+  const grade = letterGrade(stats.averageScore);
+  const reportId = `PR-${Date.now().toString(36).toUpperCase()}`;
+  const initials = student.name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const totalTests = groups.reduce((s, g) => s + g.results.length, 0);
+  const lowestColor = stats.lowestScore >= 60 ? '#1a56db' : '#b91c1c';
+
+  const replacements = {
+    studentName: student.name,
+    studentId: student.id,
+    initials,
+    generatedDate: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    startDate: new Date(startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    endDate: new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    reportId,
+    year: now.getFullYear(),
+    totalTests,
+    totalGroups: groups.length,
+    satLatestTestScore: satScores?.latestTestScore ?? '—',
+    satLatestEnglishScore: satScores?.latestEnglishScore ?? '—',
+    satLatestMathScore: satScores?.latestMathScore ?? '—',
+    satSuperScore: satScores?.superScore ?? '—',
+    latestTestSection: buildLatestTestSection(latestTest),
+    weeklySection: buildWeeklySection(categoryPerfSplit, categoryPerf),
+  };
+
+  const html = renderTemplate(replacements);
+
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+    });
+    return pdfBuffer;
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { generateReportPDF };
