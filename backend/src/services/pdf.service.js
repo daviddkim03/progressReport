@@ -9,7 +9,7 @@ const TEMPLATE_PATH = path.join(__dirname, '../templates/report.template.html');
 // "Latest Test Performance" panel doesn't push to a second page. Overflow is
 // summarised as "and N more (X correct)" — full per-question detail is still
 // available in the live web report.
-const MAX_QUESTIONS_PER_BLOCK = 15;
+const MAX_QUESTIONS_PER_BLOCK = 10;
 
 const YES_CELL = '<span style="color:#15803d;font-weight:700;">Yes</span>';
 const NO_CELL = '<span style="color:#b91c1c;font-weight:700;">No</span>';
