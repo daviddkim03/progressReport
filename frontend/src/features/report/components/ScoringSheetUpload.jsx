@@ -14,7 +14,7 @@ const styles = {
     background: '#fafbff', fontSize: '0.78rem',
   },
   label: { fontWeight: 600, color: 'var(--muted)', letterSpacing: '0.04em', textTransform: 'uppercase', fontSize: '0.7rem' },
-  slot: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1.5px solid var(--border)', background: '#fff' },
+  slot: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, border: '1.5px solid var(--border)', background: '#fff', whiteSpace: 'nowrap' },
   slotUploaded: { borderColor: '#86efac', background: '#f0fdf4', color: '#15803d' },
   slotMissing: { color: 'var(--muted)' },
   pill: { fontWeight: 600, fontSize: '0.72rem' },
@@ -50,7 +50,7 @@ const styles = {
 
 const SECTION_LABELS = {
   math: 'Math',
-  rw: 'Reading & Writing',
+  rw: 'RW',
 };
 
 function SectionSlot({ groupId, section, existing, onChanged }) {
