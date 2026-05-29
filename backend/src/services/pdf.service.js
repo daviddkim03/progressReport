@@ -205,8 +205,9 @@ function buildWeeklySection(categoryPerfSplit, categoryPerf) {
   if (!enCats.length && !maCats.length) return '';
 
   const TOP = 3;
-  const topN = (cats) => [...cats].sort((a, b) => b.percentage - a.percentage).slice(0, TOP);
-  const botN = (cats) => [...cats].sort((a, b) => a.percentage - b.percentage).slice(0, TOP);
+  // Tiebreak by total question count (desc) so a 4/4 outranks a 2/2 and a 0/4 outranks a 0/1.
+  const topN = (cats) => [...cats].sort((a, b) => b.percentage - a.percentage || b.total - a.total).slice(0, TOP);
+  const botN = (cats) => [...cats].sort((a, b) => a.percentage - b.percentage || b.total - a.total).slice(0, TOP);
 
   return `
     <div style="margin-bottom:18px;">
