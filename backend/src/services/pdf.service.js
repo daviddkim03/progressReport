@@ -147,8 +147,11 @@ function buildLatestTestSection(latestTest) {
 }
 
 // ── Weekly Performance ────────────────────────────────────────
-function buildCatRow(cat, i) {
-  const color = scoreColor(cat.percentage);
+// `forceColor` lets callers paint the score regardless of percentage — used so
+// rows under the Weaknesses strip never look green just because the student
+// happened to miss only one or two questions.
+function buildCatRow(cat, i, forceColor) {
+  const color = forceColor || scoreColor(cat.percentage);
   return `
     <tr>
       <td style="white-space:nowrap;">${cat.name}</td>
@@ -157,10 +160,10 @@ function buildCatRow(cat, i) {
 }
 
 function buildSubjectBox(subject, dotColor, headerBg, strengths, weaknesses) {
-  const tableFor = (cats) => cats.length > 0
+  const tableFor = (cats, forceColor) => cats.length > 0
     ? `<table class="cat-table">
         <thead><tr><th>Problem Category</th><th>Score</th></tr></thead>
-        <tbody>${cats.map((c, i) => buildCatRow(c, i)).join('')}</tbody>
+        <tbody>${cats.map((c, i) => buildCatRow(c, i, forceColor)).join('')}</tbody>
        </table>`
     : `<div style="padding:10px 14px;font-size:0.85rem;color:#6b7280;font-style:italic;">No data available.</div>`;
 
@@ -177,13 +180,13 @@ function buildSubjectBox(subject, dotColor, headerBg, strengths, weaknesses) {
           <div class="subject-strip" style="background:#f0fdf4;color:#15803d;">
             <span>▲ Strengths</span>
           </div>
-          ${tableFor(strengths)}
+          ${tableFor(strengths, '#15803d')}
         </div>
         <div>
           <div class="subject-strip" style="background:#fef2f2;color:#b91c1c;">
             <span>▼ Weaknesses</span>
           </div>
-          ${tableFor(weaknesses)}
+          ${tableFor(weaknesses, '#b91c1c')}
         </div>
       </div>
     </div>`;
