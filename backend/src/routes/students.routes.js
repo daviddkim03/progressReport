@@ -1,6 +1,7 @@
 // routes/students.routes.js
 const express = require('express');
-const { getAllStudents, clearCache, fetchCategoryMap } = require('../services/classmarker.service');
+const { getAllStudents, getStudentById, clearCache, fetchCategoryMap, getCategoryName } = require('../services/classmarker.service');
+const db = require('../services/db.service');
 
 const router = express.Router();
 
@@ -56,6 +57,57 @@ router.get('/sheets-debug', async (req, res, next) => {
     });
   } catch (e) {
     res.json({ error: e.message });
+  }
+});
+
+/**
+ * GET /api/students/debug/categories?email=...&days=180
+ * Diagnose category renames: for a student, list each unique (categoryId, storedName)
+ * found in their webhook records and the current name resolved from ClassMarker.
+ * Returns null `currentName` ⇒ the stored categoryId no longer exists in ClassMarker.
+ */
+router.get('/debug/categories', async (req, res) => {
+  try {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const days = Math.min(Number(req.query.days || 180), 730);
+    if (!email) return res.status(400).json({ error: 'email query param required' });
+
+    const endDate = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+
+    await fetchCategoryMap();
+    const records = await db.findMatchingRecords({ id: '', email, name: '' }, startDate, endDate, null);
+
+    const seen = new Map(); // key = `${categoryId}|${stored}` → entry
+    let questionsTotal = 0;
+    let questionsWithoutId = 0;
+
+    for (const r of records) {
+      for (const q of (r.questions || [])) {
+        questionsTotal++;
+        if (!q.categoryId) questionsWithoutId++;
+        const key = `${q.categoryId || 'null'}|${q.categoryName || ''}`;
+        if (!seen.has(key)) {
+          seen.set(key, {
+            categoryId: q.categoryId || null,
+            storedName: q.categoryName || null,
+            currentName: q.categoryId ? getCategoryName(q.categoryId) : null,
+            count: 0,
+          });
+        }
+        seen.get(key).count++;
+      }
+    }
+
+    res.json({
+      email,
+      recordCount: records.length,
+      questionsTotal,
+      questionsWithoutId,
+      categoryEntries: Array.from(seen.values()).sort((a, b) => b.count - a.count),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
