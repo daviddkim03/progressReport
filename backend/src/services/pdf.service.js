@@ -153,14 +153,13 @@ function buildCatRow(cat, i) {
     <tr>
       <td style="white-space:nowrap;">${cat.name}</td>
       <td style="font-weight:600;color:${color};">${cat.correct}/${cat.total}</td>
-      <td style="font-weight:600;color:${color};">${cat.percentage}%</td>
     </tr>`;
 }
 
 function buildSubjectBox(subject, dotColor, headerBg, strengths, weaknesses) {
   const tableFor = (cats) => cats.length > 0
     ? `<table class="cat-table">
-        <thead><tr><th>Problem Category</th><th>Score</th><th>%</th></tr></thead>
+        <thead><tr><th>Problem Category</th><th>Score</th></tr></thead>
         <tbody>${cats.map((c, i) => buildCatRow(c, i)).join('')}</tbody>
        </table>`
     : `<div style="padding:10px 14px;font-size:0.85rem;color:#6b7280;font-style:italic;">No data available.</div>`;
