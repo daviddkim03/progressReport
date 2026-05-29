@@ -281,7 +281,14 @@ async function generateReportPDF(student, groups, stats, satScores, startDate, e
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    // Don't wait for full network-idle — the template @imports Google Fonts and
+    // a slow/flaky CDN response was causing first-request 500s. Load the DOM,
+    // then wait up to 5s for fonts; fall back to the CSS fallback stack if not.
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await Promise.race([
+      page.evaluate(() => document.fonts && document.fonts.ready),
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
